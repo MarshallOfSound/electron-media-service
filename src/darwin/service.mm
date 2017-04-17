@@ -105,8 +105,6 @@ NAN_METHOD(DarwinMediaService::SetMetaData) {
   [songInfo setObject:[NSNumber numberWithFloat:duration] forKey:MPMediaItemPropertyPlaybackDuration];
   [songInfo setObject:[NSNumber numberWithFloat:songID] forKey:MPMediaItemPropertyPersistentID];
 
-  NSLog(@"%@: %lu / %lu", [NSString stringWithUTF8String:songTitle.c_str()], (unsigned long)currentTime, (unsigned long)duration);
-
   if (songState == "playing") {
     [MPNowPlayingInfoCenter defaultCenter].playbackState = MPNowPlayingPlaybackStatePlaying;
   } else if (songState == "paused") {
