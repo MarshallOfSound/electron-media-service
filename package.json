@@ -1,6 +1,6 @@
 {
   "name": "electron-media-service",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "OS Media Service integration for Electron apps",
   "main": "src/index.js",
   "author": "Samuel Attard",
