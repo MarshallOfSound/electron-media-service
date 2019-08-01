@@ -1,8 +1,8 @@
 #ifndef MODULE_H
 #define MODULE_H
 
-#include <node.h>
-#include <nan.h>
+#include <napi.h>
+#include <uv.h>
 
 #import <Foundation/Foundation.h>
 #import <objc/runtime.h>

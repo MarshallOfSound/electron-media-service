@@ -2,9 +2,8 @@
   "targets": [
     {
       "target_name": "electron_media_service",
-      "include_dirs" : [
-        "<!(node -e \"require('nan')\")"
-      ],
+      "cflags!": [ "-fno-exceptions" ],
+      "cflags_cc!": [ "-fno-exceptions" ],
       "conditions": [
         ["OS==\"mac\"", {
           "sources": [
@@ -13,7 +12,15 @@
           ],
           "libraries": [ "-framework Foundation -framework AppKit -framework MediaPlayer" ]
         }]
-      ]
+      ],
+      'include_dirs': [
+          "<!@(node -p \"require('node-addon-api').include\")"
+      ],
+      'libraries': [],
+      'dependencies': [
+          "<!(node -p \"require('node-addon-api').gyp\")"
+      ],
+      'defines': [ 'NAPI_DISABLE_CPP_EXCEPTIONS' ]
     }
   ]
 }
