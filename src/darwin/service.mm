@@ -40,11 +40,13 @@ void DarwinMediaService::Emit(std::string eventName) {
 
 void DarwinMediaService::EmitWithInt(std::string eventName, int details) {
   v8::Local<v8::Value> argv[2] = {
-    v8::String::NewFromUtf8(v8::Isolate::GetCurrent(), eventName.c_str()),
-    v8::Integer::New(v8::Isolate::GetCurrent(), details)
+    Nan::New<v8::String>(eventName.c_str()).ToLocalChecked(),
+    Nan::New<v8::Integer>(details)
   };
 
-  persistentCallback.Call(2, argv);
+  Nan::AsyncResource resource("auryo:addon.callback");
+
+  persistentCallback.Call(2, argv, &resource);
 }
 
 NAN_METHOD(DarwinMediaService::New) {
@@ -93,9 +95,9 @@ NAN_METHOD(DarwinMediaService::SetMetaData) {
   std::string songAlbum = *Nan::Utf8String(info[2]);
   std::string songState = *Nan::Utf8String(info[3]);
 
-  unsigned int songID = info[4]->Uint32Value();
-  unsigned int currentTime = info[5]->Uint32Value();
-  unsigned int duration = info[6]->Uint32Value();
+  unsigned int songID = Nan::To<int>(info[4]).ToChecked();
+  unsigned int currentTime = Nan::To<int>(info[5]).ToChecked();
+  unsigned int duration = Nan::To<int>(info[6]).ToChecked();
 
   NSMutableDictionary *songInfo = [[NSMutableDictionary alloc] init];
   [songInfo setObject:[NSString stringWithUTF8String:songTitle.c_str()] forKey:MPMediaItemPropertyTitle];
