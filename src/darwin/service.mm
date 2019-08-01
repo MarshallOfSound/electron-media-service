@@ -1,5 +1,6 @@
 #include "module.h"
-#include "nan.h"
+#include "napi.h"
+#include "uv.h"
 #import <AppKit/AppKit.h>
 
 @implementation NativeMediaController
@@ -25,13 +26,34 @@
 
 @end
 
-// static Persistent<Function> persistentCallback;
-static Nan::Callback persistentCallback;
-NAN_METHOD(DarwinMediaService::Hook) {
-  Nan::ObjectWrap::Unwrap<DarwinMediaService>(info.This());
+Napi::FunctionReference DarwinMediaService::constructor;
 
-  v8::Local<v8::Function> function = v8::Local<v8::Function>::Cast(info[0]);
-  persistentCallback.SetFunction(function);
+Napi::Object DarwinMediaService::Init(Napi::Env env, Napi::Object exports) {
+  Napi::HandleScope scope(env);
+
+  Napi::Function func = DefineClass(env, "DarwinMediaService", {
+    InstanceMethod("hook", &DarwinMediaService::Hook),
+    InstanceMethod("startService", &DarwinMediaService::StartService),
+    InstanceMethod("stopService", &DarwinMediaService::StopService),
+    InstanceMethod("setMetaData", &DarwinMediaService::SetMetaData)
+  });
+
+  constructor = Napi::Persistent(func);
+  constructor.SuppressDestruct();
+
+  exports.Set("DarwinMediaService", func);
+  return exports;
+}
+
+DarwinMediaService::DarwinMediaService(const Napi::CallbackInfo& info) : Napi::ObjectWrap<DarwinMediaService>(info)  {
+
+}
+
+// static Persistent<Function> persistentCallback;
+static Napi::FunctionReference persistentCallback;
+void DarwinMediaService::Hook(const Napi::CallbackInfo& info) {
+  persistentCallback = Napi::Persistent(info[0].As<Napi::Function>());
+  // persistentCallback.SuppressDestruct();
 }
 
 void DarwinMediaService::Emit(std::string eventName) {
@@ -39,27 +61,19 @@ void DarwinMediaService::Emit(std::string eventName) {
 }
 
 void DarwinMediaService::EmitWithInt(std::string eventName, int details) {
-  v8::Local<v8::Value> argv[2] = {
-    Nan::New<v8::String>(eventName.c_str()).ToLocalChecked(),
-    Nan::New<v8::Integer>(details)
-  };
+  if (persistentCallback != nullptr) {
+    persistentCallback.Call({
+      Napi::String::New(persistentCallback.Env(), eventName.c_str()),
+      Napi::Number::New(persistentCallback.Env(), details)
+    });
+  }
 
-  Nan::AsyncResource resource("auryo:addon.callback");
 
-  persistentCallback.Call(2, argv, &resource);
 }
 
-NAN_METHOD(DarwinMediaService::New) {
-  DarwinMediaService *service = new DarwinMediaService();
-  service->Wrap(info.This());
-  info.GetReturnValue().Set(info.This());
-}
-
-NAN_METHOD(DarwinMediaService::StartService) {
-  DarwinMediaService *self = Nan::ObjectWrap::Unwrap<DarwinMediaService>(info.This());
-
+void DarwinMediaService::StartService(const Napi::CallbackInfo& info) {
   NativeMediaController* controller = [[NativeMediaController alloc] init];
-  [controller associateService:self];
+  [controller associateService:this];
 
   MPRemoteCommandCenter *remoteCommandCenter = [MPRemoteCommandCenter sharedCommandCenter];
   [remoteCommandCenter playCommand].enabled = true;
@@ -77,9 +91,7 @@ NAN_METHOD(DarwinMediaService::StartService) {
   [[remoteCommandCenter previousTrackCommand] addTarget:controller action:@selector(remotePrev)];
 }
 
-NAN_METHOD(DarwinMediaService::StopService) {
-  Nan::ObjectWrap::Unwrap<DarwinMediaService>(info.This());
-  
+void DarwinMediaService::StopService(const Napi::CallbackInfo& info) {  
   MPRemoteCommandCenter *remoteCommandCenter = [MPRemoteCommandCenter sharedCommandCenter];
   [remoteCommandCenter playCommand].enabled = false;
   [remoteCommandCenter pauseCommand].enabled = false;
@@ -87,17 +99,15 @@ NAN_METHOD(DarwinMediaService::StopService) {
   [remoteCommandCenter changePlaybackPositionCommand].enabled = false;
 }
 
-NAN_METHOD(DarwinMediaService::SetMetaData) {
-  Nan::ObjectWrap::Unwrap<DarwinMediaService>(info.This());
+void DarwinMediaService::SetMetaData(const Napi::CallbackInfo& info) {
+  std::string songTitle = info[0].As<Napi::String>().Utf8Value().c_str();
+  std::string songArtist = info[1].As<Napi::String>().Utf8Value().c_str();
+  std::string songAlbum = info[2].As<Napi::String>().Utf8Value().c_str();
+  std::string songState = info[3].As<Napi::String>().Utf8Value().c_str();
 
-  std::string songTitle = *Nan::Utf8String(info[0]);
-  std::string songArtist = *Nan::Utf8String(info[1]);
-  std::string songAlbum = *Nan::Utf8String(info[2]);
-  std::string songState = *Nan::Utf8String(info[3]);
-
-  unsigned int songID = Nan::To<int>(info[4]).ToChecked();
-  unsigned int currentTime = Nan::To<int>(info[5]).ToChecked();
-  unsigned int duration = Nan::To<int>(info[6]).ToChecked();
+  unsigned int songID = info[4].As<Napi::Number>();
+  unsigned int currentTime = info[5].As<Napi::Number>();
+  unsigned int duration = info[6].As<Napi::Number>();
 
   NSMutableDictionary *songInfo = [[NSMutableDictionary alloc] init];
   [songInfo setObject:[NSString stringWithUTF8String:songTitle.c_str()] forKey:MPMediaItemPropertyTitle];
